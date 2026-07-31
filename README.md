@@ -31,14 +31,10 @@ either — it's run straight out of `src/` via `PYTHONPATH`, not installed.
 
 ## How to run
 
-```bash
-cd /mnt/vm-storage/VM/migration-tool
-```
-
 **List VMs on the ESXi source** (read-only, safe anytime):
 
 ```bash
-./migrate.py list --esxi-host 192.168.4.90
+./migrate.py list --esxi-host 192.168.4.90 
 ```
 
 **Preview a migration without touching anything** (`--dry-run` resolves the
