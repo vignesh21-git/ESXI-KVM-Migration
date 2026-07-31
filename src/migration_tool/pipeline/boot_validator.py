@@ -1,24 +1,23 @@
 """Boot-time observation for a registered VM: start/stop, screendump capture,
 and activity telemetry.
 
-Not explicitly named in the Phase 1 module list, but added because the
-known-issue library (FreeBSD mountroot/ada0, GDM black-screen/qxl) is
-meaningless without a way to actually observe a boot in progress. Kept
-narrowly scoped and consistent with the QEMU-monitor-based method proven
-throughout the manual migration project (`qm terminal` never reliably
-produced output against any of these guest images -- no guest-side serial
-getty was configured on most of them -- so `qm monitor ... screendump` +
-`sendkey` is the reliable path, not a fallback).
+Exists because the known-issue library (FreeBSD mountroot/ada0, GDM
+black-screen/qxl) is meaningless without a way to actually observe a boot in
+progress. Kept narrowly scoped and built on the QEMU-monitor-based method:
+`qm terminal` doesn't reliably produce output against guest images with no
+guest-side serial getty configured, which is most of them, so
+`qm monitor ... screendump` + `sendkey` is the reliable path here, not a
+fallback.
 
 DELIBERATE SCOPE BOUNDARY: this module produces evidence (an image file, a
 CPU/disk-activity reading) -- it does NOT attempt to classify that evidence
 ("is this a login prompt? a black screen? a mountroot prompt?"). That
 classification is genuinely a vision/language judgment call, not a
-mechanical one, which is exactly why it belongs in Phase 4 (LLM-driven
-decisions) rather than Phase 3 (rule-based, no LLM yet). Phase 3's
-orchestrator proves its loop mechanics using the anomaly types that ARE
-mechanically decidable (registration verification, capacity, collisions,
-appliance risk, running-VM state) -- see orchestrator.py's module docstring.
+mechanical one -- it belongs in the orchestrator's LLM-driven decision layer,
+not here. The orchestrator's rule-based loop proves its mechanics using the
+anomaly types that ARE mechanically decidable instead (registration
+verification, capacity, collisions, appliance risk, running-VM state) -- see
+orchestrator.py's module docstring.
 """
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 
-from . import proxmox_client as px
+from ..clients import proxmox_client as px
 
 
 @dataclass
@@ -67,10 +66,11 @@ def _read_activity(target_vmid: int) -> ActivityReading | None:
 
 
 def screendump(target_vmid: int, output_ppm_path: str, output_png_path: str | None = None) -> bool:
-    """Captures a screendump via the QEMU monitor (the only console access
-    method that reliably worked throughout the manual project). Optionally
-    converts to PNG via pnmtopng if a png path is given and the tool is
-    available -- falls back silently to leaving only the .ppm if not.
+    """Captures a screendump via the QEMU monitor (the reliable console
+    access method here, since `qm terminal` needs a guest-side serial getty
+    most images don't have configured). Optionally converts to PNG via
+    pnmtopng if a png path is given and the tool is available -- falls back
+    silently to leaving only the .ppm if not.
     """
     proc = subprocess.run(
         ["qm", "monitor", str(target_vmid)],
@@ -99,12 +99,11 @@ def observe_boot(
     settle_seconds: int = 15,
 ) -> BootObservation:
     """One observation pass: read activity, wait, read activity again, take
-    a screenshot. The before/after activity delta is what let this project
-    reliably tell "still booting slowly" (climbing diskread, e.g. VM 700
-    sitting on a purple GRUB screen at 0% CPU for 2-3 minutes while genuinely
-    still working) apart from "actually hung" (flat diskread AND 0% CPU --
-    confirmed multiple times against VM 602/603's real, unrecoverable hang).
-    A single reading was never enough; this always takes two.
+    a screenshot. The before/after activity delta is what reliably tells
+    "still booting slowly" (climbing diskread -- e.g. a VM sitting on a
+    purple GRUB screen at 0% CPU for a couple of minutes while genuinely
+    still working) apart from "actually hung" (flat diskread AND 0% CPU). A
+    single reading is never enough on its own; this always takes two.
     """
     notes: list[str] = []
     before = _read_activity(target_vmid)
@@ -126,9 +125,9 @@ def observe_boot(
     if before is not None and after is not None:
         delta = after.diskread_bytes - before.diskread_bytes
         # Conservative: only call it "likely hung" when BOTH signals agree
-        # (flat disk I/O and ~0% CPU). A single flat signal alone was
-        # historically not enough to conclude a hang -- e.g. a VM idling
-        # briefly at a menu is flat on both but not hung.
+        # (flat disk I/O and ~0% CPU). A single flat signal alone is not
+        # enough to conclude a hang -- e.g. a VM idling briefly at a menu is
+        # flat on both but not hung.
         likely_hung = delta == 0 and after.cpu_percent < 1.0
 
     return BootObservation(

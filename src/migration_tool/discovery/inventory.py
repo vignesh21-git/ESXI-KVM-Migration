@@ -3,9 +3,8 @@
 IMPORTANT: this output is for human display and VMID discovery ONLY. The File
 column here is not a reliable disk path — real ESXi hosts routinely have
 display names, folder names, and .vmdk filenames that all disagree with each
-other (see path_resolver.py's docstring for concrete examples hit during the
-manual migration project). Never build a copy plan from anything parsed here
-beyond the esxi_vmid.
+other (see path_resolver.py's docstring for concrete examples). Never build a
+copy plan from anything parsed here beyond the esxi_vmid.
 
 `getallvms` output has no clean delimiter between the Name and File columns
 (File starts with a "[datastore]" bracket, which we anchor on), and no field
@@ -17,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from .types import VMSummary
+from ..types import VMSummary
 
 _FILE_MARKER_RE = re.compile(r"\[(?P<datastore>[^\]]+)\]\s*(?P<relpath>\S.*?\.vmx)\s*")
 _LINE_START_RE = re.compile(r"^\s*(?P<vmid>\d+)\s+(?P<rest>.+)$")

@@ -1,21 +1,21 @@
-"""Proves the Phase 3 loop's control flow and fixed decision table, by
+"""Proves the orchestrator loop's control flow and fixed decision table, by
 mocking call_tool() so every scenario runs fast and deterministically
 without touching real ESXi/Proxmox infrastructure. This is deliberately
-separate from tests/test_live_pipeline.py (Task #15), which exercises the
-real thing against one low-risk VM -- this file isolates LOOP bugs from
-infrastructure/reasoning-quality concerns, exactly as Phase 3 asks for.
+separate from tests/run_live_pipeline_test.py, which exercises the real
+thing against one low-risk VM -- this file isolates loop bugs from
+infrastructure/reasoning-quality concerns.
 
 Run directly: `python3 tests/test_orchestrator.py`
 """
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-import tool.orchestrator as orch_mod
-from tool.esxi_client import ESXiHost
-from tool.orchestrator import Orchestrator, OrchestratorConfig
-from tool.types import DecisionKind
+import migration_tool.agent.orchestrator as orch_mod
+from migration_tool.clients.esxi_client import ESXiHost
+from migration_tool.agent.orchestrator import Orchestrator, OrchestratorConfig
+from migration_tool.types import DecisionKind
 
 FAILURES = []
 

@@ -1,15 +1,16 @@
 """Sanity checks for collision detection, name sanitization, and descriptor
-rewriting -- using the exact real-world collision cases from the manual
-migration project. Run directly: `python3 tests/test_logic.py`
+rewriting -- using real-world collision cases seen on standalone ESXi hosts.
+Run directly: `python3 tests/test_logic.py`
 """
 import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tool import collision_detector, copy_engine, register_engine
-from tool.types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
+from migration_tool.discovery import collision_detector
+from migration_tool.pipeline import copy_engine, register_engine
+from migration_tool.types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
 
 FAILURES = []
 

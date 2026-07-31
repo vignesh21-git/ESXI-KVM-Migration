@@ -1,35 +1,30 @@
 """Resolves the authoritative disk path(s) for one ESXi VM.
 
-This is the single most important safety module in Phase 1, because of a
-lesson learned the hard way during the manual migration project: a VM's
+This is the single most important safety module in the pipeline: a VM's
 display name, its containing folder name, and its actual .vmdk filename
 routinely do NOT agree with each other on real-world standalone ESXi hosts.
-Concrete examples hit during that project:
+Concrete examples worth guarding against:
 
-  - A VM displayed as "LER_2" had its real files inside a folder called
+  - A VM displayed as "LER_2" can have its real files inside a folder called
     "LER2_New", with the disk itself internally named "LER_1.vmdk".
-  - Four unrelated Windows VMs, in four different folders, all named their
+  - Several unrelated Windows VMs, in different folders, can all name their
     disk "IPv6_WIN10-HOST.vmdk".
-  - Five VMs in one testbed all used "IPv6_RefDUT_2.vmdk".
-  - Two unrelated VMs both used "Peer_New.vmdk".
+  - Multiple VMs in one testbed can all use the same disk filename, e.g.
+    "IPv6_RefDUT_2.vmdk" or "Peer_New.vmdk".
 
-Deriving a copy source from the display name or folder name would have
-copied the wrong VM's disk, or overwritten one VM's staged copy with
-another's, in every one of those cases. The only authoritative source is
+Deriving a copy source from the display name or folder name would copy the
+wrong VM's disk, or overwrite one VM's staged copy with another's, in every
+one of those cases. The only authoritative source is
 `vim-cmd vmsvc/get.filelayoutex <vmid>`, which is what this module parses.
 
-NOTE on get.filelayout vs get.filelayoutex: an earlier version of this module
-targeted plain `get.filelayout`. Validated live against a real standalone
-ESXi host during this tool's own build (see README's Phase 6 notes), that
-command's disk block reliably lists only the descriptor (.vmdk) file, NOT
-the paired `-flat.vmdk` extent -- an incorrect assumption baked into the
-original synthetic test fixtures, caught precisely because this project
-insists on validating against real infrastructure before trusting anything.
-`get.filelayoutex` is what this module actually parses now: it enumerates
-every file with an explicit `type` field (`diskDescriptor`, `diskExtent`,
-`config`, `nvram`, `log`, `snapshotList`, ...) and a real byte size, which is
-both more complete and removes the need for a separate `du` round-trip per
-disk file to learn its size.
+NOTE on get.filelayout vs get.filelayoutex: plain `get.filelayout`'s disk
+block reliably lists only the descriptor (.vmdk) file on at least some ESXi
+versions, NOT the paired `-flat.vmdk` extent. `get.filelayoutex` is what this
+module actually parses: it enumerates every file with an explicit `type`
+field (`diskDescriptor`, `diskExtent`, `config`, `nvram`, `log`,
+`snapshotList`, ...) and a real byte size, which is both more complete and
+removes the need for a separate `du` round-trip per disk file to learn its
+size.
 
 This output is VMware's semi-structured "VMOMI toString" format, not JSON.
 Parsing it is unavoidably a bit of regex archaeology; this module is
@@ -42,8 +37,8 @@ from __future__ import annotations
 
 import re
 
-from .esxi_client import ESXiClient
-from .types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
+from ..clients.esxi_client import ESXiClient
+from ..types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
 
 # --------------------------------------------------------------------------- #
 # get.filelayoutex parsing
@@ -79,13 +74,12 @@ def _classify_disk_file(name: str) -> str:
 
 
 def _parse_power_state(power_getstate_raw: str) -> PowerState:
-    """Validated live against a real standalone ESXi host: the actual output
-    of `vim-cmd vmsvc/power.getstate` is plain text ("Retrieved runtime
-    info\\nPowered off\\n"), NOT the structured `powerState = "poweredOff"`
-    form an earlier version of this function assumed. Matching on normalized
-    (space-stripped, lowercased) substrings handles both that plain-text
-    form and the structured form, in case a different vSphere API path
-    returns the latter.
+    """The actual output of `vim-cmd vmsvc/power.getstate` is plain text
+    ("Retrieved runtime info\\nPowered off\\n"), NOT the structured
+    `powerState = "poweredOff"` form some documentation implies. Matching on
+    normalized (space-stripped, lowercased) substrings handles both that
+    plain-text form and the structured form, in case a different vSphere API
+    path returns the latter.
     """
     normalized = power_getstate_raw.lower().replace(" ", "")
     if "poweredon" in normalized:

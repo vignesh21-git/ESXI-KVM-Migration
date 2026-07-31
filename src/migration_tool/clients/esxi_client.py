@@ -9,7 +9,7 @@ tiny set of read-only vim-cmd/ls/cat/du/df invocations this class builds
 itself. Callers cannot pass in an arbitrary command string; the public API is
 a set of named, single-purpose methods.
 
-Two hard-won quirks baked in here (from the manual migration project):
+Two ESXi-specific quirks baked in here:
   - ESXi's shell is BusyBox ash: no GNU extensions. No `sort -h`, no
     `grep -P`. `du`/`df` are called with -k (kibibytes) so nothing downstream
     needs to parse a human-readable size suffix.
@@ -24,7 +24,7 @@ import shlex
 import subprocess
 from dataclasses import dataclass
 
-from .types import CommandResult
+from ..types import CommandResult
 
 _SAFE_REMOTE_PATH_RE = re.compile(r"^/vmfs/volumes/[A-Za-z0-9_.\-/ ]+$")
 
@@ -52,13 +52,12 @@ def _validate_remote_path(path: str) -> str:
 @dataclass(frozen=True)
 class ESXiHost:
     """Connection info for one ESXi host. Never hardcode a host IP in this
-    module — every caller supplies one explicitly, since this project has
-    already dealt with two independent standalone ESXi hosts.
+    module — every caller supplies one explicitly, so the tool can run
+    against any ESXi host, not just one baked in at development time.
     """
     address: str
     ssh_key_path: str | None = None  # None => rely on ssh-agent / ~/.ssh/config,
-                                      # which is what actually worked throughout
-                                      # the manual project for 3 of 4 batches.
+                                      # which covers the common case.
     ssh_user: str = "root"
 
 
@@ -133,11 +132,10 @@ class ESXiClient:
     def get_filelayout(self, esxi_vmid: int) -> CommandResult:
         """`vim-cmd vmsvc/get.filelayout <vmid>`.
 
-        Kept as a fallback source only -- validated against a real standalone
-        ESXi host during this tool's own build, its plain (non-Ex) disk block
-        does NOT reliably enumerate extent (-flat.vmdk) files, only the
-        descriptor. get_filelayoutex() below is the primary, authoritative
-        source path_resolver.py actually parses.
+        Kept as a fallback source only -- on at least some ESXi versions, its
+        plain (non-Ex) disk block does NOT reliably enumerate extent
+        (-flat.vmdk) files, only the descriptor. get_filelayoutex() below is
+        the primary, authoritative source path_resolver.py actually parses.
         """
         vmid = int(esxi_vmid)  # raises if not int-like; no string ever reaches the shell here
         return self._run_remote(["vim-cmd", "vmsvc/get.filelayout", str(vmid)])
@@ -146,8 +144,7 @@ class ESXiClient:
         """`vim-cmd vmsvc/get.filelayoutex <vmid>` — THE authoritative disk
         path source. Unlike plain get.filelayout, this reliably enumerates
         every file (config/nvram/log/diskDescriptor/diskExtent/snapshotList/
-        etc.) with an explicit `type` field and real byte size, confirmed
-        against a real standalone ESXi host during this tool's own build.
+        etc.) with an explicit `type` field and real byte size.
         """
         vmid = int(esxi_vmid)
         return self._run_remote(["vim-cmd", "vmsvc/get.filelayoutex", str(vmid)])
@@ -190,8 +187,8 @@ class ESXiClient:
 
     def disk_usage_kb(self, remote_path: str) -> CommandResult:
         """`du -sk <path>` — kibibytes, deliberately not -h (BusyBox `du` has
-        no `-h`, and even where available human-readable output is a parsing
-        trap; known issue from the manual project).
+        no `-h`, and even where available, human-readable output is a
+        parsing trap).
         """
         path = _validate_remote_path(remote_path)
         return self._run_remote(["du", "-sk", path])
@@ -216,10 +213,8 @@ class ESXiClient:
         timeout_s defaults to 4 hours, NOT self.timeout_s (which defaults to
         30s and is sized for quick vim-cmd/cat/du metadata queries). A real
         multi-GB disk transfer legitimately takes far longer than a metadata
-        query -- this project's own manual migration routinely ran
-        multi-hour Windows disk transfers. Caught live during this tool's
-        own Task #15 validation: the first real pull_file call against a
-        10GB flat file timed out at the old shared 30s default.
+        query -- large Windows disk transfers in particular can run for
+        hours, and a shared 30s timeout would kill one partway through.
         """
         path = _validate_remote_path(remote_path)
         argv = [

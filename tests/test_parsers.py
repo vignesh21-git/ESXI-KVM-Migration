@@ -1,16 +1,15 @@
 """Standalone sanity checks for the text parsers, using realistic sample
-output shaped like what real standalone ESXi hosts produced during the
-manual migration project (including the exact kind of name/filename
-mismatches and embedded spaces that made this parsing worth being careful
-about). Run directly: `python3 tests/test_parsers.py`
+output shaped like what real standalone ESXi hosts produce (including the
+exact kind of name/filename mismatches and embedded spaces that make this
+parsing worth being careful about). Run directly: `python3 tests/test_parsers.py`
 """
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tool.inventory import parse_getallvms
-from tool.path_resolver import _parse_disk_files, _assess_appliance_risk, _classify_disk_file
+from migration_tool.discovery.inventory import parse_getallvms
+from migration_tool.discovery.path_resolver import _parse_disk_files, _assess_appliance_risk, _classify_disk_file
 
 FAILURES = []
 
@@ -41,12 +40,11 @@ check("getallvms: annotation captured for row with trailing text",
       "internal name mismatch" in parsed[2].annotation)
 
 # --------------------------------------------------------------------------- #
-# get.filelayoutex: base disk only. Shaped exactly like real output captured
-# live from a standalone ESXi host during this tool's own build (see
-# README's Phase 6 notes) -- an earlier version of this fixture assumed the
-# plain (non-Ex) get.filelayout shape, which turned out NOT to reliably
-# enumerate -flat.vmdk extents at all on that host. filelayoutex does, with
-# explicit `type` fields, which is what's actually parsed now.
+# get.filelayoutex: base disk only. Shaped like real output captured from a
+# standalone ESXi host -- the plain (non-Ex) get.filelayout shape does NOT
+# reliably enumerate -flat.vmdk extents on at least some ESXi versions.
+# filelayoutex does, with explicit `type` fields, which is what's actually
+# parsed now.
 # --------------------------------------------------------------------------- #
 FILELAYOUTEX_SIMPLE = """(vim.vm.FileLayoutEx) {
    file = (vim.vm.FileLayoutEx.FileInfo) [
@@ -150,7 +148,7 @@ roles2 = [f.role for f in files2]
 check("filelayoutex(snapshot): classifies all four roles correctly",
       roles2 == ["base_descriptor", "base_flat", "snapshot_descriptor", "snapshot_delta"])
 
-from tool.types import DiskFile
+from migration_tool.types import DiskFile
 has_chain = any(f.role in ("snapshot_delta", "snapshot_descriptor") for f in files2)
 check("filelayout(snapshot): has_snapshot_chain would be True", has_chain)
 

@@ -6,9 +6,9 @@ argv is always oriented remote->local. Run directly:
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tool.esxi_client import ESXiClient, ESXiHost, UnsafeRemotePathError, _validate_remote_path
+from migration_tool.clients.esxi_client import ESXiClient, ESXiHost, UnsafeRemotePathError, _validate_remote_path
 
 FAILURES = []
 
@@ -70,7 +70,7 @@ captured = {}
 def fake_exec(argv, timeout_s=None):
     captured["argv"] = argv
     captured["timeout_s"] = timeout_s
-    from tool.types import CommandResult
+    from migration_tool.types import CommandResult
     return CommandResult(ok=True, returncode=0, stdout="", stderr="", argv=argv)
 client._exec = fake_exec
 

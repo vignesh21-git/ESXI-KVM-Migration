@@ -1,23 +1,23 @@
-"""Phase 3: rule-based observe -> assess -> decide -> act -> verify -> record
-loop. No LLM involved yet -- a fixed decision table, on purpose, so loop
-mechanics get proven separately from reasoning quality (Phase 4 replaces
-just the assess/decide step with an LLM call later; everything else here is
-designed to stay unchanged when that happens).
+"""Rule-based observe -> assess -> decide -> act -> verify -> record loop.
+No LLM involved yet -- a fixed decision table, on purpose, so loop mechanics
+get proven separately from reasoning quality (an LLM call can later replace
+just the assess/decide step; everything else here is designed to stay
+unchanged when that happens).
 
 The orchestrator's action space is exactly schemas.call_tool() -- nothing in
 this file shells out, opens an SSH connection, or touches a filesystem path
-directly. That's not a style preference; it's the whole point of Phase 2
-existing as a separate layer.
+directly. That's not a style preference; it's the whole point of the tool
+schema layer existing separately.
 
 Stages, run in order per VM, each going through the full loop:
   RESOLVE -> (batch-wide COLLISION_CHECK happens once, outside per-VM loop)
   -> CAPACITY -> COPY -> CONVERT -> REGISTER -> DONE
 
 Boot validation (observe_boot) is deliberately NOT wired into this fixed
-table -- classifying a screenshot needs Phase 4. Phase 3 proves the loop
-using the anomaly types that ARE mechanically decidable: appliance risk,
-power state, capacity, collisions, and the disk-attachment silent-failure
-retry.
+table -- classifying a screenshot needs an LLM. This loop proves its
+mechanics using the anomaly types that ARE mechanically decidable: appliance
+risk, power state, capacity, collisions, and the disk-attachment
+silent-failure retry.
 """
 from __future__ import annotations
 
@@ -25,12 +25,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
-from . import capacity_check as capacity_check_mod
-from . import collision_detector
+from ..pipeline import capacity_check as capacity_check_mod
+from ..discovery import collision_detector
 from . import known_issues as ki
-from .esxi_client import ESXiHost
+from ..clients.esxi_client import ESXiHost
 from .schemas import _resolved_path_from_dict, call_tool
-from .types import (
+from ..types import (
     Decision,
     DecisionKind,
     EscalationAnswer,
@@ -42,11 +42,11 @@ AskHumanFn = Callable[[str, list[str], dict], str]
 
 
 def default_ask_human(question: str, options: list[str], context: dict) -> str:
-    """Phase 5's minimum viable escalation interface: a blocking CLI prompt.
-    Presents the question with context and options, waits for a typed
-    response. Swap this out (pass a different ask_human to Orchestrator) for
-    any richer interface later -- the orchestrator only depends on the
-    function signature, not on this being a terminal.
+    """The default escalation interface: a blocking CLI prompt. Presents the
+    question with context and options, waits for a typed response. Swap
+    this out (pass a different ask_human to Orchestrator) for any richer
+    interface later -- the orchestrator only depends on the function
+    signature, not on this being a terminal.
     """
     print("\n" + "=" * 70)
     print("HUMAN INPUT NEEDED")
@@ -311,9 +311,9 @@ class Orchestrator:
             return False
         if decision.kind == DecisionKind.APPLY_KNOWN_FIX:
             # Handled inline at the register stage today (the only
-            # mechanically-triggerable fix wired up in Phase 3); reaching
-            # here for any other known_issue_id means the fix logic hasn't
-            # been implemented for it yet -- escalate rather than pretend.
+            # mechanically-triggerable fix wired up so far); reaching here
+            # for any other known_issue_id means the fix logic hasn't been
+            # implemented for it yet -- escalate rather than pretend.
             return True
         if decision.kind == DecisionKind.ESCALATE:
             issue = self.known_issues.get(decision.known_issue_id) if decision.known_issue_id else None

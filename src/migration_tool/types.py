@@ -1,12 +1,12 @@
 """Typed return values for every tool-layer function.
 
-Nothing in this codebase returns a bare bool for a multi-step action. During the
-manual migration project, a registration script reported "success" while disk
-IMPORT had succeeded but disk ATTACHMENT (qm set --sata0) had silently failed —
-because the wrapper only checked the exit code of the last command, not the
-actual resulting state. Every dataclass below exists to make that class of bug
-structurally harder: each step of a multi-step action gets its own explicit
-verified field.
+Nothing in this codebase returns a bare bool for a multi-step action. A
+wrapper that only checks the exit code of the last command in a sequence can
+report overall "success" even when an earlier step actually failed silently
+-- e.g. disk IMPORT succeeding while disk ATTACHMENT (qm set --sata0) did
+not. Every dataclass below exists to make that class of bug structurally
+harder: each step of a multi-step action gets its own explicit verified
+field.
 """
 from __future__ import annotations
 
@@ -192,7 +192,7 @@ class EscalationAnswer:
 
 @dataclass
 class VMMigrationRecord:
-    """One row of the final per-run manifest (Phase 8, stubbed now for later use)."""
+    """One row of the final per-run migration manifest/report."""
     esxi_vmid: int
     esxi_host: str
     display_name: str
@@ -203,8 +203,8 @@ class VMMigrationRecord:
     # collision/capacity/copy/convert/register are stored as the plain JSON-safe
     # dicts produced by schemas.call_tool(), not reconstructed dataclasses --
     # this is what actually flows through the orchestrator (see
-    # orchestrator.py), and it's also the natural shape for the Phase 8 JSON
-    # manifest this record ultimately feeds.
+    # orchestrator.py), and it's also the natural shape to serialize into a
+    # JSON manifest.
     collision: dict | None = None
     capacity: dict | None = None
     copy: dict | None = None

@@ -1,7 +1,7 @@
 """Pulls a VM's disk file(s) from ESXi to local staging on the Proxmox host.
 
-Collision safety strategy (belt AND suspenders, given how many real
-collisions the manual project hit -- see path_resolver.py's docstring):
+Collision safety strategy (belt AND suspenders, given how common filename
+collisions are across VMs -- see path_resolver.py's docstring):
 
   1. STRUCTURAL: every VM gets its own staging subdirectory, namespaced by
      esxi_vmid. Two VMs literally cannot collide on disk regardless of what
@@ -9,11 +9,9 @@ collisions the manual project hit -- see path_resolver.py's docstring):
      the same directory.
   2. CONVENTION: for the common case (no snapshot chain), files are also
      renamed to `<local_name>-src.vmdk` / `<local_name>-src-flat.vmdk` on
-     arrival, matching the naming convention used throughout the manual
-     project, with the descriptor's internal extent reference rewritten to
-     match -- this is what the manual project's per-batch scripts did by
-     hand with `mv` + `sed`. Renaming happens immediately after each file's
-     copy completes, before the next file (or next VM) starts copying.
+     arrival, with the descriptor's internal extent reference rewritten to
+     match. Renaming happens immediately after each file's copy completes,
+     before the next file (or next VM) starts copying.
   3. Snapshot chains (known issue #4) are copied verbatim into their
      isolated subdirectory instead, deliberately NOT renamed -- their
      internal parent/child cross-references must stay intact for
@@ -29,8 +27,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .esxi_client import ESXiClient
-from .types import CopiedFile, CopyResult, ResolvedPath
+from ..clients.esxi_client import ESXiClient
+from ..types import CopiedFile, CopyResult, ResolvedPath
 
 _EXTENT_LINE_RE = re.compile(
     r'^(?P<prefix>(RW|RDONLY|NOACCESS)\s+\d+\s+\S+\s+")(?P<filename>[^"]+)(?P<suffix>".*)$',
@@ -42,8 +40,8 @@ def _rewrite_descriptor_extent_reference(descriptor_path: Path, new_flat_name: s
     """Rewrites the extent line inside a VMDK descriptor to point at the
     renamed flat file. Returns True if a rewrite was made.
 
-    Equivalent to the `sed -i "s/OLD-flat.vmdk/NEW-flat.vmdk/"` step every
-    batch script in the manual project performed by hand.
+    Equivalent to `sed -i "s/OLD-flat.vmdk/NEW-flat.vmdk/"` against the
+    descriptor file.
     """
     text = descriptor_path.read_text(errors="replace")
     match = _EXTENT_LINE_RE.search(text)

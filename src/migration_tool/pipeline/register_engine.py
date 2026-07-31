@@ -1,13 +1,13 @@
 """Registers a converted qcow2 as a Proxmox VM.
 
-This module exists because of the single most expensive lesson from the
-manual migration project: a registration script reported overall "success"
-while `qm importdisk` had succeeded but the follow-up `qm set --sata0 ...`
-disk-ATTACHMENT step had silently failed. The script only checked the exit
-code of each command in sequence -- it never re-read the VM's actual config
-back to confirm the disk was really there. Every step below is followed by
-an independent read-back check against `qm config <vmid>`, never inferred
-from the previous command's exit code alone.
+This module exists because a registration script can report overall
+"success" while `qm importdisk` succeeded but the follow-up
+`qm set --sata0 ...` disk-ATTACHMENT step silently failed. Checking only the
+exit code of each command in sequence never catches this -- the VM's actual
+config has to be re-read to confirm the disk is really there. Every step
+below is followed by an independent read-back check against
+`qm config <vmid>`, never inferred from the previous command's exit code
+alone.
 
 Other known issues baked in here:
   - `qm importdisk` always names its output `vm-<vmid>-disk-0.raw`,
@@ -22,15 +22,15 @@ Other known issues baked in here:
     if the pool already exists from a prior VM in the same batch).
   - Bus/NIC defaults are SATA + e1000 for every migrated VM. virtio is not
     used, because it requires in-guest driver injection this tool does not
-    perform (virt-v2v was tried and failed twice against a standalone ESXi
-    host during the manual project -- see README).
+    perform (virt-v2v was tried against a standalone ESXi host and failed --
+    see README).
 """
 from __future__ import annotations
 
 import re
 
-from . import proxmox_client as px
-from .types import RegisterResult
+from ..clients import proxmox_client as px
+from ..types import RegisterResult
 
 _SANITIZE_RE = re.compile(r"[^A-Za-z0-9-]+")
 _COLLAPSE_DASH_RE = re.compile(r"-{2,}")

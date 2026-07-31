@@ -8,15 +8,14 @@ even installed.
 
 Unlike esxi_client.py, mutation here is the whole point (this is the
 migration TARGET). Safety here comes from register_engine.py's mandatory
-post-action verification (Phase 1's core lesson), not from restricting what
-commands exist.
+post-action verification, not from restricting what commands exist.
 """
 from __future__ import annotations
 
 import json
 import subprocess
 
-from .types import CommandResult
+from ..types import CommandResult
 
 
 def _exec(argv: list[str], timeout_s: int = 60) -> CommandResult:

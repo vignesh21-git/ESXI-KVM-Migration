@@ -1,9 +1,9 @@
-"""Task #15's live pipeline test: runs the REAL end-to-end orchestrator loop
-(resolve -> capacity -> copy -> convert -> register, all through the actual
-tool layer, not mocked) against one small, already-known, low-risk VM
-(Host-A from the ER-Test-Bed batch, previously migrated and validated as
-VMID 500 -- this run targets a separate throwaway VMID and does not touch
-that existing registration).
+"""Live pipeline test: runs the REAL end-to-end orchestrator loop (resolve ->
+capacity -> copy -> convert -> register, all through the actual tool layer,
+not mocked) against one small, already-known, low-risk VM (Host-A from the
+ER-Test-Bed batch, previously migrated and validated as VMID 500 -- this run
+targets a separate throwaway VMID and does not touch that existing
+registration).
 
 Deliberately NOT part of the tests/test_*.py suite (those must stay fast and
 infrastructure-free) -- run manually: `python3 tests/run_live_pipeline_test.py`
@@ -11,11 +11,11 @@ infrastructure-free) -- run manually: `python3 tests/run_live_pipeline_test.py`
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tool.esxi_client import ESXiHost
-from tool.orchestrator import Orchestrator, OrchestratorConfig
-from tool import proxmox_client as px
+from migration_tool.clients.esxi_client import ESXiHost
+from migration_tool.agent.orchestrator import Orchestrator, OrchestratorConfig
+from migration_tool.clients import proxmox_client as px
 
 TEST_VMID = 9999
 TEST_POOL = "Migration-Tool-Test"

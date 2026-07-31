@@ -7,19 +7,19 @@ itself and produces a single flattened image. copy_engine.py stages snapshot
 chains verbatim (uncollided via per-VM subdirectories) specifically so this
 resolution works unmodified.
 
-Never deletes the source files itself -- the manual project's convention was
-"convert, verify, THEN clean up the raw vmdk/flat copies" as an explicit
-separate step, and register_engine.py's disk-attachment verification is what
-actually gates whether it's safe to do that cleanup. This module only
-produces the verified qcow2 and reports whether it's trustworthy; cleanup is
-the orchestrator's decision after registration succeeds.
+Never deletes the source files itself -- "convert, verify, THEN clean up the
+raw vmdk/flat copies" is an explicit separate step, and
+register_engine.py's disk-attachment verification is what actually gates
+whether it's safe to do that cleanup. This module only produces the
+verified qcow2 and reports whether it's trustworthy; cleanup is the
+orchestrator's decision after registration succeeds.
 """
 from __future__ import annotations
 
 import json
 import subprocess
 
-from .types import ConvertResult
+from ..types import ConvertResult
 
 
 def _run(argv: list[str], timeout_s: int) -> tuple[bool, str, str]:

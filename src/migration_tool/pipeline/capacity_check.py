@@ -1,9 +1,10 @@
 """Verifies there's enough room on the TARGET (Proxmox) side before a copy or
 convert starts.
 
-Known issue this exists to prevent: during the manual project, staging copied
-disk files under /root filled a ~96GB root partition to 100%, twice, causing
-hard mid-transfer failures. The fixes baked in here:
+Known issue this exists to prevent: staging disk copies under the root
+filesystem instead of dedicated bulk storage can silently fill a small root
+partition to 100%, causing hard mid-transfer failures. The fixes baked in
+here:
   1. Staging directory must live under the configured bulk-storage mount
      point -- never on the root filesystem. Checked structurally, not just
      documented.
@@ -20,7 +21,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 
-from .types import CapacityCheck
+from ..types import CapacityCheck
 
 
 class UnsafeStagingLocationError(ValueError):
@@ -38,8 +39,8 @@ def assert_staging_on_bulk_storage(staging_dir: str, bulk_storage_mount: str) ->
         raise UnsafeStagingLocationError(
             f"staging directory {staging_dir!r} (resolved: {staging_real!r}) is not "
             f"under the bulk storage mount {bulk_storage_mount!r}. Refusing to stage "
-            "large disk copies outside bulk storage -- this filled the root "
-            "filesystem to 100% twice during the manual migration project."
+            "large disk copies outside bulk storage -- an easy way to silently "
+            "fill the root filesystem to 100%."
         )
 
 

@@ -1,21 +1,21 @@
 """Cross-references resolved disk filenames across a batch, before any copy
 starts.
 
-Real example from the manual project this exists to catch: 5 VMs in one
-testbed batch all had a disk file literally named "IPv6_RefDUT_2.vmdk". If
-copy_engine staged them one after another using the source filename verbatim,
-VM #2's copy would silently overwrite VM #1's. The fix used throughout the
-manual project was: detect every collision up front, then rename immediately
-after each individual copy completes (before the next VM's copy begins) --
-copy_engine.py implements the rename half, this module implements the
-detection half.
+Real-world example this exists to catch: several VMs in the same testbed
+batch can all have a disk file with the identical name (e.g.
+"IPv6_RefDUT_2.vmdk") in different folders. If copy_engine staged them one
+after another using the source filename verbatim, one VM's copy would
+silently overwrite another's. The fix: detect every collision up front, then
+rename immediately after each individual copy completes (before the next
+VM's copy begins) -- copy_engine.py implements the rename half, this module
+implements the detection half.
 """
 from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import PurePosixPath
 
-from .types import CollisionReport, ResolvedPath
+from ..types import CollisionReport, ResolvedPath
 
 
 def detect(resolved_vms: list[ResolvedPath]) -> CollisionReport:

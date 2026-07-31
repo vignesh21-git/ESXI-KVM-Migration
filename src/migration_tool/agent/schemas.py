@@ -1,14 +1,14 @@
-"""Phase 2: agent-callable tool schemas wrapping every Phase 1 function.
+"""Agent-callable tool schemas wrapping every discovery/pipeline function.
 
-This is the ENTIRE action space available to the orchestrator (Phase 3+).
-There is no path from the orchestrator to a raw shell command, an arbitrary
-SSH invocation, or any ESXi-mutating call -- because none of those things
-exist anywhere below this layer either (esxi_client.py has no write methods
-to wrap in the first place).
+This is the ENTIRE action space available to the orchestrator. There is no
+path from the orchestrator to a raw shell command, an arbitrary SSH
+invocation, or any ESXi-mutating call -- because none of those things exist
+anywhere below this layer either (esxi_client.py has no write methods to
+wrap in the first place).
 
 Each entry in TOOL_REGISTRY carries:
   - a plain-JSON-serializable input schema (so this can be handed directly
-    to an LLM tool-calling API in Phase 4 without modification)
+    to an LLM tool-calling API without modification)
   - `target`: "esxi" (always read-only, structurally) | "proxmox" (may
     mutate) | "local" (filesystem/pure-logic, no network)
   - `mutating`: bool, for orchestrator-side audit logging emphasis
@@ -17,8 +17,7 @@ Each entry in TOOL_REGISTRY carries:
 Every mutating function's output dict preserves the per-step verification
 booleans from its underlying dataclass (RegisterResult, CopyResult, etc.) --
 this module never collapses those down to a single ok/fail flag. That
-collapsing is exactly the bug this whole project's tool layer exists to
-prevent.
+collapsing is exactly the bug this tool layer exists to prevent.
 """
 from __future__ import annotations
 
@@ -27,13 +26,13 @@ import enum
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from . import collision_detector, convert_engine, copy_engine, path_resolver, proxmox_client as px
-from . import boot_validator
-from . import capacity_check as capacity_check_mod
-from . import register_engine
-from .esxi_client import ESXiClient, ESXiHost
-from .inventory import parse_getallvms
-from .types import ResolvedPath
+from ..discovery import collision_detector, path_resolver
+from ..discovery.inventory import parse_getallvms
+from ..pipeline import boot_validator, convert_engine, copy_engine, register_engine
+from ..pipeline import capacity_check as capacity_check_mod
+from ..clients import proxmox_client as px
+from ..clients.esxi_client import ESXiClient, ESXiHost
+from ..types import ResolvedPath
 
 
 def _to_jsonable(obj: Any) -> Any:
@@ -55,7 +54,7 @@ def _resolved_path_from_dict(d: dict) -> ResolvedPath:
     (stage_vm_disk, detect_collisions) take a ResolvedPath as input and the
     agent only ever holds the JSON form of one.
     """
-    from .types import ApplianceRisk, DiskFile, PowerState
+    from ..types import ApplianceRisk, DiskFile, PowerState
 
     return ResolvedPath(
         esxi_vmid=d["esxi_vmid"],
@@ -74,8 +73,9 @@ def _resolved_path_from_dict(d: dict) -> ResolvedPath:
 
 
 # --------------------------------------------------------------------------- #
-# Handlers -- plain dict in, plain dict out. Each thinly wraps a Phase 1
-# function; none of them add new capabilities beyond what Phase 1 exposes.
+# Handlers -- plain dict in, plain dict out. Each thinly wraps a
+# discovery/pipeline function; none of them add capabilities beyond what
+# that layer exposes.
 # --------------------------------------------------------------------------- #
 def _h_esxi_list_all_vms(args: dict) -> dict:
     client = ESXiClient(ESXiHost(address=args["esxi_host"], ssh_key_path=args.get("ssh_key_path")))
@@ -211,7 +211,7 @@ class ToolSchema:
 
     def to_llm_tool_def(self) -> dict:
         """Renders as an Anthropic-Messages-API-shaped tool definition, for
-        direct use in Phase 4.
+        direct use with an LLM tool-calling API.
         """
         return {
             "name": self.name,

@@ -1,15 +1,16 @@
 """Loads known_issues/library.json and wires up the mechanically-triggerable
-entries to actual trigger/fix logic that orchestrator.py's Phase 3 decision
-table can evaluate.
+entries to actual trigger/fix logic that orchestrator.py's rule-based
+decision table can evaluate.
 
 Split deliberately mirrors the library's own `mechanically_triggerable`
 field: entries where the trigger condition is readable straight off
 structured tool output (RegisterResult, CapacityCheck, ConvertResult,
-CollisionReport, ResolvedPath) get real trigger/fix callables here and
-Phase 3 can act on them today. Entries whose trigger requires reading a
-screenshot (FreeBSD mountroot, GDM black screen) are loaded as data for
-Phase 4 to reason over, but have no callable here -- Phase 3 correctly
-does not pretend to detect them.
+CollisionReport, ResolvedPath) get real trigger/fix callables here and the
+rule-based orchestrator can act on them today. Entries whose trigger
+requires reading a screenshot (FreeBSD mountroot, GDM black screen) are
+loaded as data for an LLM-driven decision step to reason over later, but
+have no callable here -- the rule-based loop correctly does not pretend to
+detect them.
 """
 from __future__ import annotations
 
@@ -59,10 +60,10 @@ def propose_new_issue(
     fix_description: str,
     resolved_via: str,
 ) -> dict:
-    """Phase 8 hook: builds a new library entry from something a human just
-    resolved via escalation, in the SAME shape as the seeded entries. Never
-    writes to library.json itself -- returns the proposed entry for a human
-    to review and confirm before it's appended (see README's Phase 8 notes).
+    """Builds a new library entry from something a human just resolved via
+    escalation, in the SAME shape as the seeded entries. Never writes to
+    library.json itself -- returns the proposed entry for a human to review
+    and confirm before it's appended (see README).
     """
     return {
         "id": issue_id,

@@ -5,10 +5,10 @@ tool registry completeness, and that call_tool() is the only entry point
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from tool import schemas
-from tool.esxi_client import ESXiClient
+from migration_tool.agent import schemas
+from migration_tool.clients.esxi_client import ESXiClient
 
 FAILURES = []
 
@@ -37,14 +37,14 @@ check("every esxi-target tool is marked non-mutating",
 check("at least esxi_list_all_vms and esxi_resolve_vm_path are esxi-target",
       {"esxi_list_all_vms", "esxi_resolve_vm_path"}.issubset({s.name for s in esxi_tools}))
 
-# No schema handler reaches for anything outside the tool.* package (i.e. no
-# handler shells out directly instead of going through Phase 1 modules).
+# No schema handler reaches for anything outside the discovery/pipeline
+# packages (i.e. no handler shells out directly instead of going through them).
 import inspect
 for name, schema in schemas.TOOL_REGISTRY.items():
     src = inspect.getsource(schema.handler)
     check(f"{name}: handler does not call subprocess directly", "subprocess" not in src)
 
-# to_llm_tool_def() shape, since Phase 4 will feed this straight to an API
+# to_llm_tool_def() shape, since an LLM tool-calling API consumes this directly
 sample = schemas.TOOL_REGISTRY["esxi_resolve_vm_path"].to_llm_tool_def()
 check("to_llm_tool_def has name/description/input_schema keys",
       set(sample.keys()) == {"name", "description", "input_schema"})
@@ -63,7 +63,7 @@ except KeyError:
 # through esxi_resolve_vm_path's own JSON shape manually (since we have no
 # live ESXi host in this test), then through call_tool("detect_collisions").
 # --------------------------------------------------------------------------- #
-from tool.types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
+from migration_tool.types import ApplianceRisk, DiskFile, PowerState, ResolvedPath
 
 rp1 = ResolvedPath(
     esxi_vmid=402, display_name="Host-D", datastore="Data_Storage",
