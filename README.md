@@ -90,11 +90,16 @@ for f in tests/test_*.py; do python3 "$f"; done
 ```
 
 **Run the real pipeline against live infrastructure** (a smoke test that
-targets a disposable VMID and does not touch any existing registration):
+targets a disposable VMID and does not touch any existing registration).
+`--esxi-host`/`--esxi-vmid` are required with no defaults — pick a small,
+low-risk VM from your own environment (see `./migrate.py --esxi-host <host>
+list`), and confirm the target VMID/pool (defaults: `9999` /
+`Migration-Tool-Test`) don't collide with anything real:
 
 ```bash
 export PYTHONPATH="$PWD/src"
-python3 tests/run_live_pipeline_test.py
+python3 tests/run_live_pipeline_test.py \
+    --esxi-host 192.168.4.90 --esxi-vmid 17 --display-name Host-A --guest-os ubuntuGuest
 ```
 
 ## Structural safety guarantee
