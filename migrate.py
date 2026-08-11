@@ -2,12 +2,14 @@
 """Command-line entrypoint for the ESXi -> Proxmox migration tool.
 
 Examples:
+    ./migrate.py --esxi-host 192.168.4.90 list
     ./migrate.py list --esxi-host 192.168.4.90
-    ./migrate.py run --esxi-vmid 17 --target-vmid 500 --pool ER-Test-Bed --dry-run
     ./migrate.py run --esxi-host 192.168.4.90 --esxi-vmid 17 --target-vmid 500 \\
-        --memory-mb 2048 --cores 2 --pool ER-Test-Bed
+        --memory-mb 2048 --cores 2 --pool ER-Test-Bed --dry-run
 
-If --esxi-host is omitted you'll be prompted for it interactively.
+--esxi-host / --ssh-key work before OR after the subcommand -- pick whichever
+reads more naturally. If --esxi-host is omitted entirely you'll be prompted
+for it interactively.
 """
 from __future__ import annotations
 
@@ -36,8 +38,16 @@ def _prompt(label: str) -> str:
 
 
 def _resolve_esxi_host(args: argparse.Namespace) -> str:
-    if args.esxi_host:
-        return args.esxi_host
+    # argparse gives the subcommand's own --esxi-host (dest esxi_host_sub) a
+    # separate attribute from the top-level one (dest esxi_host): when a
+    # subparser runs, it merges its *entire* parsed namespace back into the
+    # shared one, so a same-named dest here would silently reset whatever
+    # the top-level parser already captured whenever the flag isn't repeated
+    # after the subcommand. Checking both, sub-parser-first, is what lets
+    # --esxi-host work in either position.
+    host = getattr(args, "esxi_host_sub", None) or args.esxi_host
+    if host:
+        return host
     host = _prompt("ESXi host address (e.g. 192.168.4.90)")
     if not host:
         print("error: an ESXi host address is required (--esxi-host or interactive prompt)", file=sys.stderr)
@@ -45,9 +55,13 @@ def _resolve_esxi_host(args: argparse.Namespace) -> str:
     return host
 
 
+def _resolve_ssh_key(args: argparse.Namespace) -> str | None:
+    return getattr(args, "ssh_key_sub", None) or args.ssh_key
+
+
 def cmd_list(args: argparse.Namespace) -> None:
     host = _resolve_esxi_host(args)
-    client = ESXiClient(ESXiHost(address=host, ssh_key_path=args.ssh_key))
+    client = ESXiClient(ESXiHost(address=host, ssh_key_path=_resolve_ssh_key(args)))
     result = client.list_all_vms()
     if not result.ok:
         print(f"error listing VMs on {host}: {result.stderr.strip()}", file=sys.stderr)
@@ -62,7 +76,7 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_run(args: argparse.Namespace) -> None:
     host = _resolve_esxi_host(args)
-    esxi_host = ESXiHost(address=host, ssh_key_path=args.ssh_key)
+    esxi_host = ESXiHost(address=host, ssh_key_path=_resolve_ssh_key(args))
 
     if args.dry_run:
         client = ESXiClient(esxi_host)
@@ -126,17 +140,49 @@ def cmd_run(args: argparse.Namespace) -> None:
     sys.exit(0 if record.final_status == "migrated" else 1)
 
 
+EPILOG = """\
+examples:
+  ./migrate.py --esxi-host 192.168.4.90 list
+  ./migrate.py list --esxi-host 192.168.4.90
+  ./migrate.py run --esxi-host 192.168.4.90 --esxi-vmid 17 --target-vmid 500 \\
+      --pool ER-Test-Bed --dry-run
+
+--esxi-host and --ssh-key work before OR after {list,run} -- either order is
+fine. Run `./migrate.py run --help` for run's full option list.
+"""
+
+
+def _add_host_args(sub_parser: argparse.ArgumentParser) -> None:
+    """--esxi-host/--ssh-key, repeated on a subparser so they also work
+    *after* the subcommand. dest is deliberately distinct from the
+    top-level parser's (esxi_host_sub vs esxi_host): argparse merges a
+    subparser's entire parsed namespace back into the shared one
+    unconditionally, so a shared dest would let this default (None) stomp
+    a value the top-level parser already captured. _resolve_esxi_host /
+    _resolve_ssh_key check both, sub-parser-first.
+    """
+    sub_parser.add_argument("--esxi-host", dest="esxi_host_sub", default=None, help="ESXi host address, e.g. 192.168.4.90 (prompted if omitted)")
+    sub_parser.add_argument("--ssh-key", dest="ssh_key_sub", default=None, help="explicit SSH key path (default: ssh-agent / ~/.ssh/config)")
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="migrate.py", description="ESXi -> Proxmox migration tool.")
-    parser.add_argument("--esxi-host", help="ESXi host address, e.g. 192.168.4.90 (prompted if omitted)")
+    parser = argparse.ArgumentParser(
+        prog="migrate.py",
+        description="ESXi -> Proxmox migration tool.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--esxi-host", default=None, help="ESXi host address, e.g. 192.168.4.90 (prompted if omitted)")
     parser.add_argument("--ssh-key", default=None, help="explicit SSH key path (default: ssh-agent / ~/.ssh/config)")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_list = sub.add_parser("list", help="list VMs known to the ESXi host")
+    _add_host_args(p_list)
     p_list.set_defaults(func=cmd_list)
 
     p_run = sub.add_parser("run", help="migrate one VM to Proxmox")
+    _add_host_args(p_run)
     p_run.add_argument("--esxi-vmid", type=int, required=True, help="VMID on the ESXi source (see `list`)")
     p_run.add_argument("--target-vmid", type=int, required=True, help="VMID to register on Proxmox")
     p_run.add_argument("--memory-mb", type=int, default=2048)
