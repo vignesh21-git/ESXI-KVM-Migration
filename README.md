@@ -29,6 +29,24 @@ No pip/venv required — everything is Python 3.9+ standard library
 `ssh`/`scp`/`qemu-img`/`qm`/`pvesh` binaries. No `pyproject.toml`/`setup.py`
 either — it's run straight out of `src/` via `PYTHONPATH`, not installed.
 
+## SSH access to the ESXi host
+
+The tool shells out to `ssh`/`scp` against the ESXi host directly from the
+Proxmox host — there's no separate credential store, so key-based auth needs
+to already work before running anything. For a new ESXi host, copy the
+Proxmox host's key over once:
+
+```bash
+ssh-copy-id root@<esxi-host-ip>
+```
+
+If `ssh-copy-id` isn't available, append the Proxmox host's
+`~/.ssh/id_rsa.pub` to `/etc/ssh/keys-root/authorized_keys` on the ESXi host
+manually — ESXi doesn't use the standard `~/.ssh/authorized_keys` path.
+Once set up, `ssh root@<esxi-host-ip>` should succeed with no password
+prompt, and `--ssh-key` can be left out entirely (or pointed at a non-default
+key explicitly, e.g. `--ssh-key ~/.ssh/id_ed25519`).
+
 ## How to run
 
 **List VMs on the ESXi source** (read-only, safe anytime):
