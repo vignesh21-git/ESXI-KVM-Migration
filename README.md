@@ -34,7 +34,7 @@ either — it's run straight out of `src/` via `PYTHONPATH`, not installed.
 **List VMs on the ESXi source** (read-only, safe anytime):
 
 ```bash
-./migrate.py list --esxi-host 192.168.4.90 
+./migrate.py --esxi-host 192.168.4.90 list 
 ```
 
 **Preview a migration without touching anything** (`--dry-run` resolves the
@@ -42,14 +42,14 @@ VM's real disk path, power state, and appliance risk, and prints what a real
 run would do — no copy, convert, or register):
 
 ```bash
-./migrate.py run --esxi-host 192.168.4.90 --esxi-vmid 17 --target-vmid 500 \
+./migrate.py --esxi-host 192.168.4.90 run --esxi-vmid 17 --target-vmid 500 \
     --pool ER-Test-Bed --dry-run
 ```
 
 **Run it for real:**
 
 ```bash
-./migrate.py run --esxi-host 192.168.4.90 --esxi-vmid 17 --target-vmid 500 \
+./migrate.py --esxi-host 192.168.4.90 run --esxi-vmid 17 --target-vmid 500 \
     --memory-mb 2048 --cores 2 --pool ER-Test-Bed
 ```
 
